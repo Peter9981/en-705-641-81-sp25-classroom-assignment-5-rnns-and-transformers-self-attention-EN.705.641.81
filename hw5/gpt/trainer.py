@@ -65,25 +65,48 @@ class Trainer:
     def trigger_callbacks(self, onevent: str):
         for callback in self.callbacks.get(onevent, []):
             callback(self)
-
+            
     def evaluation(self):
         model, config = self.model, self.config
         model.eval()
         valid_loss = []
         valid_ppls = []
         with torch.no_grad():
-            for batch in self.dev_dataloader:
+            # Add enumerate to track the number of batches
+            for i, batch in enumerate(self.dev_dataloader):
+                # LIMIT to 100 batches to prevent Colab from hanging
+                if i >= 100: 
+                    break
                 batch = [t.to(self.device) for t in batch]
                 input_ids, labels, masks = batch
                 logits, loss = model(input_ids, labels, masks)
                 valid_loss.append(loss.item())
                 valid_ppls.append(torch.exp(loss).item())
+                
         self.valid_loss = sum(valid_loss) / len(valid_loss)
         self.valid_ppl = sum(valid_ppls) / len(valid_ppls)
         self.trigger_callbacks('on_validation_end')
         self.all_iter_valid_loss.append(self.valid_loss)
         self.all_iter_valid_ppl.append(self.valid_ppl)
         model.train()
+    # def evaluation(self):
+    #     model, config = self.model, self.config
+    #     model.eval()
+    #     valid_loss = []
+    #     valid_ppls = []
+    #     with torch.no_grad():
+    #         for batch in self.dev_dataloader:
+    #             batch = [t.to(self.device) for t in batch]
+    #             input_ids, labels, masks = batch
+    #             logits, loss = model(input_ids, labels, masks)
+    #             valid_loss.append(loss.item())
+    #             valid_ppls.append(torch.exp(loss).item())
+    #     self.valid_loss = sum(valid_loss) / len(valid_loss)
+    #     self.valid_ppl = sum(valid_ppls) / len(valid_ppls)
+    #     self.trigger_callbacks('on_validation_end')
+    #     self.all_iter_valid_loss.append(self.valid_loss)
+    #     self.all_iter_valid_ppl.append(self.valid_ppl)
+    #     model.train()
 
     def plot(self):
         plt.clf()

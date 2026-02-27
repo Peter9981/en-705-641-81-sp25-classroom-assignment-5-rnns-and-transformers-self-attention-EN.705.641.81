@@ -32,11 +32,14 @@ def sample_from_trained_model(trained_model):
     generate(trained_model, prompt=' The best way to learn', num_samples=1, steps=30)
     generate(trained_model, prompt=' According to the latest research', num_samples=1, steps=30)
 
-
 def run(train_dataset, dev_dataset, max_iter=1, device='cpu', plot=True, sample=True):
-    # create dataloaders
-    train_dataloader = create_dataloader(train_dataset, batch_size=256, shuffle=True)
-    dev_dataloader = create_dataloader(dev_dataset, batch_size=256, shuffle=False)
+    # Clear CUDA cache before starting to prevent OOM
+    if device == 'cuda':
+        torch.cuda.empty_cache()
+
+    # REDUCED batch_size from 256 to 128 for T4 GPU safety
+    train_dataloader = create_dataloader(train_dataset, batch_size=128, shuffle=True)
+    dev_dataloader = create_dataloader(dev_dataset, batch_size=128, shuffle=False)
 
     # create model
     model_config = GPT.get_default_config()
@@ -47,9 +50,9 @@ def run(train_dataset, dev_dataset, max_iter=1, device='cpu', plot=True, sample=
 
     # create trainer
     train_config = Trainer.get_default_config()
-    train_config.learning_rate = 5e-4  # the model we're using is so small that we can go a bit faster
+    train_config.learning_rate = 5e-4 
     train_config.max_iters = max_iter
-    train_config.num_workers = 0
+    train_config.num_workers = 0 # Keep at 0 for Colab
     train_config.device = device
     trainer = Trainer(train_config, model, train_dataloader, dev_dataloader)
     trainer.set_callback('on_batch_end', batch_end_callback)
@@ -60,6 +63,33 @@ def run(train_dataset, dev_dataset, max_iter=1, device='cpu', plot=True, sample=
         trainer.plot()
     if sample:
         sample_from_trained_model(model)
+# def run(train_dataset, dev_dataset, max_iter=1, device='cpu', plot=True, sample=True):
+#     # create dataloaders
+#     train_dataloader = create_dataloader(train_dataset, batch_size=64, shuffle=True)
+#     dev_dataloader = create_dataloader(dev_dataset, batch_size=64, shuffle=False)
+
+#     # create model
+#     model_config = GPT.get_default_config()
+#     model_config.model_type = 'gpt-nano'
+#     model_config.vocab_size = VOCAB_SIZE
+#     model_config.block_size = 32
+#     model = GPT(model_config)
+
+#     # create trainer
+#     train_config = Trainer.get_default_config()
+#     train_config.learning_rate = 5e-4  # the model we're using is so small that we can go a bit faster
+#     train_config.max_iters = max_iter
+#     train_config.num_workers = 0
+#     train_config.device = device
+#     trainer = Trainer(train_config, model, train_dataloader, dev_dataloader)
+#     trainer.set_callback('on_batch_end', batch_end_callback)
+#     trainer.set_callback('on_validation_end', evaluation_callback)
+
+#     trainer.run()
+#     if plot:
+#         trainer.plot()
+#     if sample:
+#         sample_from_trained_model(model)
 
 def cpu_gpu_comparison(train_dataset, dev_dataset, max_iter=100):
     run(train_dataset, dev_dataset, max_iter=max_iter, device='cpu', plot=False, sample=False)
